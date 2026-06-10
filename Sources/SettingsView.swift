@@ -1,13 +1,14 @@
 import SwiftUI
 import AppKit
 import Carbon
+import ServiceManagement
 
 // ── Window controller ─────────────────────────────────────────────────────────
 
 final class SettingsWindowController: NSWindowController {
     init() {
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 130),
+            contentRect: NSRect(x: 0, y: 0, width: 340, height: 175),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -34,6 +35,12 @@ struct SettingsView: View {
     @State private var isRecording = false
     @State private var saved = false
     @State private var localMonitor: Any?
+    @State private var launchAtLogin: Bool = {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        }
+        return false
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -52,6 +59,20 @@ struct SettingsView: View {
                 .buttonStyle(.bordered)
                 .tint(isRecording ? .orange : .accentColor)
             }
+
+            Divider()
+
+            Toggle("Inicializar com o Mac", isOn: $launchAtLogin)
+                .font(.system(size: 13))
+                .onChange(of: launchAtLogin) { _, enabled in
+                    if #available(macOS 13.0, *) {
+                        if enabled {
+                            try? SMAppService.mainApp.register()
+                        } else {
+                            try? SMAppService.mainApp.unregister()
+                        }
+                    }
+                }
 
             Divider()
 
