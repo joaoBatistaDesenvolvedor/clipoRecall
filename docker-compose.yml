@@ -1,0 +1,18 @@
+services:
+  backend:
+    build: ./backend
+    container_name: clipboard-history-api
+    ports:
+      - "8765:8000"
+    volumes:
+      - clipboard_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  clipboard_data:
+    name: clipboard_history_data
