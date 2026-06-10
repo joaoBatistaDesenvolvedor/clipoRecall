@@ -15,7 +15,16 @@ cd "$ROOT"
 swift build -c release 2>&1
 echo "✅  Compilado."
 
-# ── 3. Instalar em ~/Applications ────────────────────────────────────────────
+# ── 3. Gerar ícone ────────────────────────────────────────────────────────────
+echo ""
+echo "🎨  Gerando ícone…"
+ICONSET="$ROOT/.build/AppIcon.iconset"
+ICNS="$ROOT/.build/AppIcon.icns"
+swift "$ROOT/scripts/make_icon.swift" "$ICONSET" 2>&1
+iconutil -c icns "$ICONSET" -o "$ICNS"
+echo "✅  Ícone gerado."
+
+# ── 4. Instalar em ~/Applications ────────────────────────────────────────────
 echo ""
 echo "📦  Instalando em ~/Applications/ClipRecall.app…"
 APP_BUNDLE="$HOME/Applications/ClipRecall.app"
@@ -23,6 +32,7 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$ROOT/.build/release/ClipRecall" "$APP_BUNDLE/Contents/MacOS/ClipRecall"
+cp "$ICNS" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
 cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -31,6 +41,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'PLIST'
 <dict>
     <key>CFBundleExecutable</key>
     <string>ClipRecall</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.local.cliprecall</string>
     <key>CFBundleName</key>
@@ -46,7 +58,7 @@ PLIST
 
 echo "✅  Instalado."
 
-# ── 4. Lançar ─────────────────────────────────────────────────────────────────
+# ── 5. Lançar ─────────────────────────────────────────────────────────────────
 echo ""
 kill $(pgrep -x ClipRecall) 2>/dev/null || true
 open "$APP_BUNDLE"
