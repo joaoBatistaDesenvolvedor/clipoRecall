@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var previousApp: NSRunningApplication?
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
+    private var settingsController: SettingsWindowController?
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -39,6 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         open.target = self
         menu.addItem(open)
         menu.addItem(.separator())
+        let settings = NSMenuItem(title: "Configurações…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(.separator())
         menu.addItem(withTitle: "Sair", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
     }
@@ -50,9 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
-
         let selfPtr = Unmanaged.passRetained(self).toOpaque()
-
         InstallEventHandler(
             GetApplicationEventTarget(),
             { (_, _, userData) -> OSStatus in
@@ -61,21 +64,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { delegate.togglePanel() }
                 return noErr
             },
-            1,
-            &eventSpec,
-            selfPtr,
-            &eventHandlerRef
+            1, &eventSpec, selfPtr, &eventHandlerRef
         )
+        updateHotkey(HotkeyConfig.load())
+    }
 
-        var hotKeyID = EventHotKeyID(signature: OSType(0x636c6970), id: 1)
-        RegisterEventHotKey(
-            UInt32(kVK_ANSI_V),
-            UInt32(cmdKey | shiftKey),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            OptionBits(0),
-            &hotKeyRef
-        )
+    func updateHotkey(_ config: HotkeyConfig) {
+        if let ref = hotKeyRef { UnregisterEventHotKey(ref); hotKeyRef = nil }
+        let id = EventHotKeyID(signature: OSType(0x636c6970), id: 1)
+        var idVar = id
+        RegisterEventHotKey(config.keyCode, config.modifiers, idVar,
+                            GetApplicationEventTarget(), OptionBits(0), &hotKeyRef)
+    }
+
+    @objc private func openSettings() {
+        if settingsController == nil { settingsController = SettingsWindowController() }
+        settingsController?.show()
     }
 
     // ── Clipboard Monitor ─────────────────────────────────────────────────────
