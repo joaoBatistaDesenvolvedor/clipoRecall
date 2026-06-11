@@ -2,6 +2,18 @@
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
+# ── 0. Verificar Docker instalado ─────────────────────────────────────────────
+if ! command -v docker &>/dev/null; then
+    echo ""
+    echo "❌  Docker não encontrado."
+    echo ""
+    echo "   O ClipRecall precisa do Docker Desktop para funcionar."
+    echo "   Baixe em: https://www.docker.com/products/docker-desktop/"
+    echo ""
+    open "https://www.docker.com/products/docker-desktop/"
+    exit 1
+fi
+
 # ── 1. Backend Docker ─────────────────────────────────────────────────────────
 echo "🐳  Instalando backend em ~/.cliprecall…"
 BACKEND_DIR="$HOME/.cliprecall"

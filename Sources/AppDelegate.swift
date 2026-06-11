@@ -149,9 +149,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .appendingPathComponent(".cliprecall").path
         guard FileManager.default.fileExists(atPath: backendDir) else { return }
 
+        let dockerPaths = ["/usr/local/bin/docker", "/opt/homebrew/bin/docker", "/usr/bin/docker"]
+        guard dockerPaths.contains(where: { FileManager.default.fileExists(atPath: $0) }) else {
+            DispatchQueue.main.async { self.showDockerMissingAlert() }
+            return
+        }
+
         Task.detached {
             await self.ensureDockerRunning()
             self.runDockerCompose(in: backendDir)
+        }
+    }
+
+    private func showDockerMissingAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Docker não encontrado"
+        alert.informativeText = "O ClipRecall precisa do Docker Desktop para funcionar. Clique em \"Baixar\" para instalar."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Baixar Docker Desktop")
+        alert.addButton(withTitle: "Fechar")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(URL(string: "https://www.docker.com/products/docker-desktop/")!)
         }
     }
 
