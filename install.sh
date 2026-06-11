@@ -3,8 +3,26 @@ set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 # ── 1. Backend Docker ─────────────────────────────────────────────────────────
-echo "🐳  Iniciando backend Docker…"
-cd "$ROOT"
+echo "🐳  Instalando backend em ~/.cliprecall…"
+BACKEND_DIR="$HOME/.cliprecall"
+mkdir -p "$BACKEND_DIR"
+cp -r "$ROOT/backend" "$BACKEND_DIR/backend"
+cp "$ROOT/docker-compose.yml" "$BACKEND_DIR/docker-compose.yml"
+
+# Garante que o Docker Desktop está rodando
+DOCKER_SOCK="$HOME/.docker/run/docker.sock"
+if ! docker info &>/dev/null; then
+    echo "  Iniciando Docker Desktop…"
+    open -a Docker
+    for i in $(seq 1 40); do
+        sleep 2
+        docker info &>/dev/null && break
+        printf "."
+    done
+    echo ""
+fi
+
+cd "$BACKEND_DIR"
 docker compose up -d --build
 echo "✅  Backend rodando em http://localhost:8765"
 

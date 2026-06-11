@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel = ClipboardPanel(viewModel: viewModel)
         setupHotkey()
         setupClipboardMonitor()
+        startBackend()
         checkBackend()
     }
 
@@ -139,10 +140,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // ── Backend Docker ────────────────────────────────────────────────────────
+
+    // ── Backend Docker ────────────────────────────────────────────────────────
+
+    private func startBackend() {
+        let backendDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cliprecall").path
+        guard FileManager.default.fileExists(atPath: backendDir) else { return }
+
+        Task.detached {
+            await self.ensureDockerRunning()
+            self.runDockerCompose(in: backendDir)
+        }
+    }
+
+    private func ensureDockerRunning() async {
+        let socket = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".docker/run/docker.sock").path
+        guard !FileManager.default.fileExists(atPath: socket) else { return }
+
+        // Docker daemon não está rodando — abre o Docker Desktop
+        let open = Process()
+        open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        open.arguments = ["-a", "Docker"]
+        try? open.run()
+        open.waitUntilExit()
+
+        // Aguarda o daemon ficar disponível (máx ~30s)
+        for _ in 0..<30 {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if FileManager.default.fileExists(atPath: socket) { break }
+        }
+    }
+
+    private func runDockerCompose(in dir: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-l", "-c", "docker compose up -d"]
+        process.currentDirectoryURL = URL(fileURLWithPath: dir)
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+    }
+
     // ── Backend health ────────────────────────────────────────────────────────
 
     private func checkBackend() {
         Task { @MainActor in
+            // Aguarda o container subir
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
             let online = await APIClient.shared.isReachable()
             viewModel.backendOnline = online
         }
