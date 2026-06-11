@@ -33,5 +33,10 @@ venv/
 .claude/
 CLAUDE.md
 
+# Build artifacts
+*.dmg
+*.icns
+*.iconset/
+
 # Debug artifacts
 /tmp/cm_debug.txt
