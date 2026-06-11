@@ -8,7 +8,8 @@ let package = Package(
         .executableTarget(
             name: "ClipRecall",
             path: "Sources",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            linkerSettings: [.linkedLibrary("sqlite3")]
         )
     ]
 )

@@ -5,11 +5,10 @@ final class ClipboardViewModel: ObservableObject {
     @Published var items: [ClipboardItem] = []
     @Published var searchText: String = ""
     @Published var selectedId: Int?
-    @Published var backendOnline: Bool = true
 
     var pinnedItems: [ClipboardItem] { filtered.filter(\.pinned) }
-    var recentItems: [ClipboardItem]  { filtered.filter { !$0.pinned } }
-    var allVisible: [ClipboardItem]   { pinnedItems + recentItems }
+    var recentItems: [ClipboardItem] { filtered.filter { !$0.pinned } }
+    var allVisible:  [ClipboardItem] { pinnedItems + recentItems }
 
     private var filtered: [ClipboardItem] {
         guard !searchText.isEmpty else { return items }
@@ -20,7 +19,7 @@ final class ClipboardViewModel: ObservableObject {
 
     func load() {
         Task {
-            let fetched = await APIClient.shared.fetchHistory()
+            let fetched = await HistoryStore.shared.fetchHistory()
             await MainActor.run {
                 self.items = fetched
                 if self.selectedId == nil || !self.items.contains(where: { $0.id == self.selectedId }) {
@@ -34,33 +33,27 @@ final class ClipboardViewModel: ObservableObject {
 
     func delete(_ id: Int) {
         Task {
-            await APIClient.shared.deleteItem(id: id)
-            await MainActor.run {
-                self.items.removeAll { $0.id == id }
-            }
+            await HistoryStore.shared.deleteItem(id: id)
+            await MainActor.run { self.items.removeAll { $0.id == id } }
         }
     }
 
     func togglePin(_ id: Int) {
         Task {
-            guard let updated = await APIClient.shared.togglePin(id: id) else { return }
+            guard let updated = await HistoryStore.shared.togglePin(id: id) else { return }
             await MainActor.run {
                 if let idx = self.items.firstIndex(where: { $0.id == id }) {
                     self.items[idx] = updated
                 }
-                let pinned   = self.items.filter(\.pinned)
-                let unpinned = self.items.filter { !$0.pinned }
-                self.items = pinned + unpinned
+                self.items = self.items.filter(\.pinned) + self.items.filter { !$0.pinned }
             }
         }
     }
 
     func clearHistory() {
         Task {
-            await APIClient.shared.clearHistory()
-            await MainActor.run {
-                self.items.removeAll { !$0.pinned }
-            }
+            await HistoryStore.shared.clearHistory()
+            await MainActor.run { self.items.removeAll { !$0.pinned } }
         }
     }
 

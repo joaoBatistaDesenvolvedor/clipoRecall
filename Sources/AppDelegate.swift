@@ -1,7 +1,6 @@
 import AppKit
 import Carbon
 import CoreGraphics
-import ApplicationServices
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static weak var shared: AppDelegate?
@@ -24,8 +23,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel = ClipboardPanel(viewModel: viewModel)
         setupHotkey()
         setupClipboardMonitor()
-        startBackend()
-        checkBackend()
     }
 
     // ── Status Bar ────────────────────────────────────────────────────────────
@@ -72,9 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func updateHotkey(_ config: HotkeyConfig) {
         if let ref = hotKeyRef { UnregisterEventHotKey(ref); hotKeyRef = nil }
-        let id = EventHotKeyID(signature: OSType(0x636c6970), id: 1)
-        var idVar = id
-        RegisterEventHotKey(config.keyCode, config.modifiers, idVar,
+        var id = EventHotKeyID(signature: OSType(0x636c6970), id: 1)
+        RegisterEventHotKey(config.keyCode, config.modifiers, id,
                             GetApplicationEventTarget(), OptionBits(0), &hotKeyRef)
     }
 
@@ -87,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupClipboardMonitor() {
         clipboardMonitor.onNewContent = { entry in
-            Task { await APIClient.shared.addItem(content: entry.content, contentType: entry.contentType) }
+            Task { await HistoryStore.shared.addItem(content: entry.content, contentType: entry.contentType) }
         }
         clipboardMonitor.start()
     }
@@ -137,79 +133,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 simulateCmdV()
             }
-        }
-    }
-
-    // ── Backend Docker ────────────────────────────────────────────────────────
-
-    // ── Backend Docker ────────────────────────────────────────────────────────
-
-    private func startBackend() {
-        let backendDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".cliprecall").path
-        guard FileManager.default.fileExists(atPath: backendDir) else { return }
-
-        let dockerPaths = ["/usr/local/bin/docker", "/opt/homebrew/bin/docker", "/usr/bin/docker"]
-        guard dockerPaths.contains(where: { FileManager.default.fileExists(atPath: $0) }) else {
-            DispatchQueue.main.async { self.showDockerMissingAlert() }
-            return
-        }
-
-        Task.detached {
-            await self.ensureDockerRunning()
-            self.runDockerCompose(in: backendDir)
-        }
-    }
-
-    private func showDockerMissingAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Docker não encontrado"
-        alert.informativeText = "O ClipRecall precisa do Docker Desktop para funcionar. Clique em \"Baixar\" para instalar."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Baixar Docker Desktop")
-        alert.addButton(withTitle: "Fechar")
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(URL(string: "https://www.docker.com/products/docker-desktop/")!)
-        }
-    }
-
-    private func ensureDockerRunning() async {
-        let socket = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".docker/run/docker.sock").path
-        guard !FileManager.default.fileExists(atPath: socket) else { return }
-
-        // Docker daemon não está rodando — abre o Docker Desktop
-        let open = Process()
-        open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        open.arguments = ["-a", "Docker"]
-        try? open.run()
-        open.waitUntilExit()
-
-        // Aguarda o daemon ficar disponível (máx ~30s)
-        for _ in 0..<30 {
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            if FileManager.default.fileExists(atPath: socket) { break }
-        }
-    }
-
-    private func runDockerCompose(in dir: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-l", "-c", "docker compose up -d"]
-        process.currentDirectoryURL = URL(fileURLWithPath: dir)
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try? process.run()
-    }
-
-    // ── Backend health ────────────────────────────────────────────────────────
-
-    private func checkBackend() {
-        Task { @MainActor in
-            // Aguarda o container subir
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
-            let online = await APIClient.shared.isReachable()
-            viewModel.backendOnline = online
         }
     }
 }

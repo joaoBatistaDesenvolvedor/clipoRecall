@@ -32,12 +32,6 @@ struct ClipboardHistoryView: View {
 
             Spacer()
 
-            if !vm.backendOnline {
-                Label("Backend offline", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
-            }
-
             Button { closePanel() } label: {
                 Image(systemName: "xmark.circle.fill")
                     .symbolRenderingMode(.hierarchical)
@@ -77,10 +71,8 @@ struct ClipboardHistoryView: View {
 
     @ViewBuilder
     var itemList: some View {
-        if vm.items.isEmpty && vm.backendOnline {
+        if vm.items.isEmpty {
             emptyState(icon: "doc.on.clipboard", title: "Sem itens", subtitle: "Copie algo para começar")
-        } else if !vm.backendOnline {
-            emptyState(icon: "wifi.slash", title: "Backend offline", subtitle: "Inicie com: docker compose up -d")
         } else if vm.allVisible.isEmpty {
             emptyState(icon: "magnifyingglass", title: "Sem resultados", subtitle: "Tente outra busca")
         } else {
